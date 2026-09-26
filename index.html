@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="hy">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>EV-News | Էլեկտրամոբիլների Բլոգ</title>
+  
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  
+  <!-- Netlify Identity (Անհրաժեշտ է Ադմին մուտքի համար) -->
+  <script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
+  
+  <style>
+    @keyframes border-flow {
+      0% { transform: translate(-50%, -50%) rotate(0deg); }
+      100% { transform: translate(-50%, -50%) rotate(360deg); }
+    }
+    .animate-border-flow { animation: border-flow 6s linear infinite alternate; }
+    html { scroll-behavior: smooth; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel" data-type="module">
+    import React, { useState, useEffect } from 'https://esm.sh/react@18';
+    import { createRoot } from 'https://esm.sh/react-dom@18/client';
+    import * as Lucide from 'https://esm.sh/lucide-react@0.292.0';
+    
+    const { ChevronLeft, Zap, BatteryCharging, Palette, Lock } = Lucide;
+
+    const THEMES = {
+      light: {
+        appBg: 'bg-[#f0f2f5]', cardBg: 'bg-[#f8f9fa]', text: 'text-slate-800', textTitle: 'text-slate-900', textMuted: 'text-slate-500',
+        border: 'border-slate-200', navBg: 'bg-[#f8f9fa]/90', iconMain: 'text-blue-600', accent: 'text-emerald-600', cardBorderWrapper: 'bg-slate-200'
+      },
+      medium: {
+        appBg: 'bg-[#475569]', cardBg: 'bg-[#334155]', text: 'text-slate-200', textTitle: 'text-white', textMuted: 'text-slate-400',
+        border: 'border-slate-600', navBg: 'bg-[#334155]/90', iconMain: 'text-blue-400', accent: 'text-emerald-400', cardBorderWrapper: 'bg-slate-600'
+      },
+      dark: {
+        appBg: 'bg-[#121212]', cardBg: 'bg-[#1e1e1e]', text: 'text-gray-300', textTitle: 'text-gray-100', textMuted: 'text-gray-500',
+        border: 'border-[#333]', navBg: 'bg-[#1e1e1e]/90', iconMain: 'text-blue-500', accent: 'text-emerald-500', cardBorderWrapper: 'bg-[#333]'
+      }
+    };
+
+    function App() {
+      // Ստուգում ենք, թե արդյոք օգտատերը բացել է կայքը Ադմին ռեժիմով
+      const [isAdminMode, setIsAdminMode] = useState(
+        window.location.hash === '#admin' || window.location.pathname.includes('/admin')
+      );
+      
+      const [view, setView] = useState('home'); 
+      const [currentArticle, setCurrentArticle] = useState(null);
+      const [theme, setTheme] = useState('light');
+      const [articles, setArticles] = useState([]);
+      const [isLoading, setIsLoading] = useState(true);
+
+      const t = THEMES[theme];
+
+      useEffect(() => {
+        if (window.netlifyIdentity) {
+          window.netlifyIdentity.init();
+          window.netlifyIdentity.on("login", () => {
+            document.location.href = "#admin";
+            window.location.reload();
+          });
+        }
+
+        if (isAdminMode) {
+          document.title = "Ադմին Վահանակ";
+          const script = document.createElement('script');
+          script.src = "https://unpkg.com/decap-cms@^3.1.2/dist/decap-cms.js";
+          script.onload = () => {
+            window.CMS.init({
+              config: {
+                backend: {
+                  name: 'git-gateway', // Կապվում է Netlify-ի ու GitHub-ի հետ
+                  branch: 'main'
+                },
+                local_backend: false,
+                locale: 'en', // Ադմին պանելի լեզուն
+                media_folder: "images", // Որտեղ պահել նկարները GitHub-ում
+                public_folder: "./images", // Ինչ հղում դնել ֆայլի մեջ
+                collections: [
+                  {
+                    name: "articles",
+                    label: "Հոդվածներ",
+                    files: [
+                      {
+                        label: "Կայքի Տվյալների Բազա",
+                        name: "data",
+                        file: "data.json", // ՍԱ Է ՄԵՐ ՖԱՅԼԸ, ՈՐԸ ԿՍՏԵՂԾՎԻ
+                        fields: [
+                          {
+                            label: "Հոդվածների ցանկ",
+                            name: "posts",
+                            widget: "list",
+                            fields: [
+                              {label: "Վերնագիր", name: "title", widget: "string"},
+                              {label: "Համառոտագրություն", name: "excerpt", widget: "text"},
+                              {label: "Գլխավոր Նկար (Ընտրեք File)", name: "imageUrl", widget: "image", required: false},
+                              {label: "Հոդվածի բուն տեքստը", name: "content", widget: "markdown"}
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            });
+          };
+          document.head.appendChild(script);
+        } else {
+          fetch('./data.json')
+            .then(res => {
+              if (!res.ok) throw new Error("Դեռևս հոդվածներ չկան:");
+              return res.json();
+            })
+            .then(data => {
+              if (data && data.posts) {
+                // Շրջում ենք, որ նորերը լինեն վերևում
+                setArticles(data.posts.reverse());
+              }
+              setIsLoading(false);
+            })
+            .catch(err => {
+              console.log("Տվյալների ֆայլը դեռ չի ստեղծվել Ադմինի կողմից:", err);
+              setIsLoading(false);
+            });
+        }
+      }, [isAdminMode]);
+
+      const openArticle = (article) => {
+        setCurrentArticle(article);
+        setView('article');
+        window.scrollTo(0, 0);
+      };
+
+      const goHome = () => {
+        setCurrentArticle(null);
+        setView('home');
+        window.scrollTo(0, 0);
+      };
+
+      // Եթե Ադմին մոդն է, React-ը զիջում է էկրանը CMS ծրագրին
+      if (isAdminMode) return null;
+
+      return (
+        <div className={`min-h-screen ${t.appBg} font-sans ${t.text} transition-colors duration-300`}>
+          <div className="h-1 w-full bg-gradient-to-r from-blue-500 via-sky-400 to-emerald-500"></div>
+
+          <nav className={`${t.navBg} backdrop-blur-md sticky top-0 z-50 border-b ${t.border} shadow-sm transition-colors duration-300`}>
+            <div className="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">
+              <div className="flex items-center gap-2 cursor-pointer group" onClick={goHome}>
+                <div className={`${t.appBg} p-2 rounded-lg transition-colors`}>
+                  <Zap className={`w-6 h-6 ${t.iconMain}`} />
+                </div>
+                <h1 className={`text-xl font-bold tracking-tight ${t.textTitle}`}>
+                  EV-<span className={`${t.accent} font-medium`}>News</span>
+                </h1>
+              </div>
+              
+              <div className="flex items-center gap-2">
+                <Palette className={`w-4 h-4 ${t.textMuted}`} />
+                <select 
+                  value={theme} 
+                  onChange={(e) => setTheme(e.target.value)}
+                  className={`text-sm py-1.5 px-2 rounded-lg border ${t.border} bg-transparent ${t.text} focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer`}
+                >
+                  <option value="light" className="bg-white text-black">Լուսավոր</option>
+                  <option value="medium" className="bg-slate-700 text-white">Միջին</option>
+                  <option value="dark" className="bg-black text-white">Մուգ</option>
+                </select>
+              </div>
+            </div>
+          </nav>
+
+          <main className="max-w-4xl mx-auto px-4 py-10 min-h-[70vh]">
+            {isLoading ? (
+               <div className={`flex flex-col items-center justify-center py-20 ${t.textMuted}`}>
+                 <BatteryCharging className={`w-10 h-10 animate-pulse mb-4 ${t.iconMain}`} />
+                 <p>Բեռնվում է...</p>
+               </div>
+            ) : (
+              <>
+                {view === 'home' && (
+                  <div className="space-y-12 animate-in fade-in duration-500">
+                    <header className="mb-12 text-center sm:text-left">
+                      <h2 className={`text-3xl sm:text-4xl font-semibold ${t.textTitle} mb-3 tracking-tight`}>Ապագայի Տեխնոլոգիաները Այսօր</h2>
+                      <p className={`text-lg ${t.textMuted} max-w-2xl`}>Նորություններ էլեկտրական մեքենաների և մարտկոցների մասին:</p>
+                    </header>
+
+                    <div className="space-y-6">
+                      {articles.length === 0 && (
+                        <div className={`text-center p-10 border ${t.border} rounded-2xl`}>
+                           <p className={t.textMuted}>Դեռևս հոդվածներ չկան: Մուտք գործեք Ադմին պանել՝ առաջինը ավելացնելու համար:</p>
+                        </div>
+                      )}
+                      {articles.map((article, index) => (
+                        <div 
+                          key={index} 
+                          onClick={() => openArticle(article)}
+                          className={`group relative p-[2px] rounded-2xl overflow-hidden cursor-pointer shadow-sm hover:shadow-md transition-all duration-300 ${t.cardBorderWrapper}`}
+                        >
+                          <div className="absolute top-1/2 left-1/2 w-[200%] h-[200%] bg-[conic-gradient(from_0deg,#60a5fa,#34d399,#60a5fa,#34d399,#60a5fa)] animate-border-flow opacity-0 group-hover:opacity-70 transition-opacity duration-500 pointer-events-none z-0"></div>
+                          
+                          <article className={`relative z-10 flex flex-col sm:flex-row gap-5 ${t.cardBg} p-4 rounded-[14px] h-full w-full transition-colors duration-300`}>
+                            <div className="w-full sm:w-48 h-48 sm:h-auto shrink-0 overflow-hidden rounded-xl relative bg-black/5">
+                              {/* Եթե նկար կա, ցույց ենք տալիս */}
+                              {article.imageUrl && (
+                                <img src={article.imageUrl} alt={article.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                              )}
+                              <div className="absolute inset-0 border border-black/10 rounded-xl pointer-events-none"></div>
+                            </div>
+                            <div className="flex flex-col justify-center py-2 flex-1">
+                              <div className={`flex items-center gap-2 mb-2 text-xs font-semibold ${t.accent} uppercase tracking-wider`}>
+                                <BatteryCharging className="w-3 h-3" /> Նորություն
+                              </div>
+                              <h3 className={`text-2xl font-bold ${t.textTitle} mb-2 group-hover:text-blue-500 transition-colors`}>
+                                {article.title}
+                              </h3>
+                              <div className="grid grid-rows-[0fr] group-hover:grid-rows-[1fr] transition-[grid-template-rows] duration-300 ease-out">
+                                <div className="overflow-hidden">
+                                  <p className={`${t.textMuted} leading-relaxed text-[15px] pt-1`}>{article.excerpt}</p>
+                                </div>
+                              </div>
+                            </div>
+                          </article>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {view === 'article' && currentArticle && (
+                  <article className={`max-w-3xl mx-auto ${t.cardBg} p-6 sm:p-10 rounded-3xl shadow-sm border ${t.border} transition-colors duration-300 animate-in slide-in-from-bottom-4`}>
+                    <button onClick={goHome} className={`flex items-center gap-2 text-sm font-medium ${t.textMuted} hover:${t.iconMain} mb-8 transition-colors`}>
+                      <ChevronLeft className="w-4 h-4" /> Վերադառնալ
+                    </button>
+                    
+                    {currentArticle.imageUrl && (
+                      <div className={`w-full h-64 sm:h-96 rounded-2xl overflow-hidden mb-10 border ${t.border}`}>
+                        <img src={currentArticle.imageUrl} alt={currentArticle.title} className="w-full h-full object-cover" />
+                      </div>
+                    )}
+                    
+                    <h1 className={`text-3xl sm:text-4xl font-bold ${t.textTitle} mb-6 leading-tight`}>{currentArticle.title}</h1>
+                    <div className="w-16 h-1 bg-gradient-to-r from-blue-500 to-emerald-500 rounded-full mb-10"></div>
+                    
+                    <div className="prose prose-lg max-w-none">
+                      {currentArticle.content && currentArticle.content.split('\n').map((paragraph, idx) => {
+                        const trimmed = paragraph.trim();
+                        if (!trimmed) return null;
+                        
+                        // Պատկերների (Images) ճանաչման համակարգ
+                        if (trimmed.startsWith('IMAGE:')) {
+                          return <div key={idx} className="my-8"><img src={trimmed.replace('IMAGE:', '').trim()} alt="Inline" className={`w-full rounded-2xl border ${t.border} shadow-sm`} /></div>;
+                        }
+                        
+                        return <p key={idx} className={`${t.text} opacity-90 leading-relaxed mb-6 text-[17px]`}>{trimmed}</p>;
+                      })}
+                    </div>
+                  </article>
+                )}
+              </>
+            )}
+          </main>
+          
+          <footer className={`text-center py-10 ${t.textMuted} text-sm transition-colors mt-auto flex flex-col items-center gap-4`}>
+            <p>© {new Date().getFullYear()} EV-News. Բոլոր իրավունքները պաշտպանված են:</p>
+            
+            {/* Ադմին մուտքի գաղտնի կոճակ */}
+            <button 
+                onClick={() => { window.location.hash = '#admin'; window.location.reload(); }} 
+                className="opacity-50 hover:opacity-100 transition-opacity focus:outline-none" 
+                title="Ադմին Մուտք"
+            >
+              <Lock className="w-4 h-4" />
+            </button>
+          </footer>
+        </div>
+      );
+    }
+
+    const root = createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
+</body>
+</html>
