@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin Dashboard</title>
+  <!-- Netlify Identity (Required) -->
+  <script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
+</head>
+<body>
+  <!-- Decap CMS Script -->
+  <script src="https://unpkg.com/decap-cms@^3.1.2/dist/decap-cms.js"></script>
+  
+  <!-- CMS Configuration -->
+  <script>
+    window.CMS.init({
+      config: {
+        backend: {
+          name: 'git-gateway',
+          branch: 'main'
+        },
+        local_backend: false,
+        locale: 'en',
+        media_folder: "images",
+        public_folder: "./images",
+        collections: [
+          {
+            name: "articles",
+            label: "Հոդվածներ",
+            files: [
+              {
+                label: "Կայքի Տվյալների Բազա",
+                name: "data",
+                file: "data.json",
+                fields: [
+                  {
+                    label: "Հոդվածների ցանկ",
+                    name: "posts",
+                    widget: "list",
+                    fields: [
+                      {label: "Վերնագիր", name: "title", widget: "string"},
+                      {label: "Համառոտագրություն", name: "excerpt", widget: "text"},
+                      {label: "Գլխավոր Նկար (Ընտրեք ֆայլ համակարգչից)", name: "imageUrl", widget: "image", required: false},
+                      {label: "Տեքստի բովանդակություն (Նկարների համար գրեք IMAGE: ./images/անուն.jpg)", name: "content", widget: "markdown"}
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    });
+  </script>
+</body>
+</html>
